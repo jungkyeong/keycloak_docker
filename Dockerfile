@@ -19,7 +19,8 @@
 # # Keycloak용 키 반출
 # docker cp keycloak-https:/opt/keycloak/cert ./cert
 # 명령어 수행 후 (server.keystore에 들어가서 반출하고자 하는 키 반출) 
-# =========================== # 
+# =========================== #
+
 
 # 1. Alpine 패키지 매니저를 통해 OpenSSL 인증서 생성
 FROM alpine:latest as cert-generator
@@ -30,31 +31,41 @@ RUN openssl req -x509 -newkey rsa:2048 \
     -out /certs/server.pem \
     -days 365 -nodes \
     -subj "/CN=localhost"
-RUN cp /certs/server.pem /certs/server.crt
 
-# 2. Keycloak 이미지
+# .p12 키스토어 생성
+RUN openssl pkcs12 -export \
+    -in /certs/server.pem \
+    -inkey /certs/server.key \
+    -out /certs/server.p12 \
+    -name keycloak \
+    -passout pass:password
+
+# 2. Keycloak 기반 이미지
 FROM quay.io/keycloak/keycloak:26.3.1
 
-# 3. ID, 비밀번호 세팅
+# 관리자 계정 정보
 ENV KEYCLOAK_ADMIN=admin
 ENV KEYCLOAK_ADMIN_PASSWORD=admin123
 
-# 4. 생성한 인증서를 root 권한으로 Keycloack 컨테이너에 복사
 USER root
+
+# 인증서 및 .p12 키스토어 복사
 COPY --from=cert-generator /certs /opt/keycloak/cert
 
-# 5. keycloak 사용자 파일 접근 권한 부여 (644: 읽기, 쓰기)
-RUN chown -R keycloak:keycloak /opt/keycloak/cert
-RUN chmod 644 /opt/keycloak/cert/*
+# 권한 설정
+RUN chown -R keycloak:keycloak /opt/keycloak/cert && \
+    chmod 644 /opt/keycloak/cert/*
 
-# 6. Keycloak용 keystore 생성
+# .p12 → KeyStore 변환
 RUN keytool -importkeystore \
+    -srckeystore /opt/keycloak/cert/server.p12 \
     -srcstoretype PKCS12 \
     -srcstorepass password \
     -destkeystore /opt/keycloak/conf/server.keystore \
-    -deststorepass password
+    -deststorepass password \
+    -noprompt
 
-# 7. Keycloak HTTPS 설정
+# Keycloak HTTPS 설정
 USER keycloak
 ENV KC_HOSTNAME=localhost
 ENV KC_HTTPS_KEY_STORE_FILE=/opt/keycloak/conf/server.keystore
