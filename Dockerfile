@@ -32,7 +32,7 @@ RUN openssl req -x509 -newkey rsa:2048 \
     -days 365 -nodes \
     -subj "/CN=localhost"
 
-# .p12 키스토어 생성
+# 2. p12 키스토어 생성
 RUN openssl pkcs12 -export \
     -in /certs/server.pem \
     -inkey /certs/server.key \
@@ -40,23 +40,23 @@ RUN openssl pkcs12 -export \
     -name keycloak \
     -passout pass:password
 
-# 2. Keycloak 기반 이미지
+# 3. Keycloak 기반 이미지
 FROM quay.io/keycloak/keycloak:26.3.1
 
-# 관리자 계정 정보
+# 4. 관리자 계정 정보
 ENV KEYCLOAK_ADMIN=admin
 ENV KEYCLOAK_ADMIN_PASSWORD=admin123
 
 USER root
 
-# 인증서 및 .p12 키스토어 복사
+# 5. 인증서 및 .p12 키스토어 복사
 COPY --from=cert-generator /certs /opt/keycloak/cert
 
-# 권한 설정
+# 6. 권한 설정
 RUN chown -R keycloak:keycloak /opt/keycloak/cert && \
     chmod 644 /opt/keycloak/cert/*
 
-# .p12 → KeyStore 변환
+# 7. .p12 → KeyStore 변환
 RUN keytool -importkeystore \
     -srckeystore /opt/keycloak/cert/server.p12 \
     -srcstoretype PKCS12 \
@@ -65,7 +65,7 @@ RUN keytool -importkeystore \
     -deststorepass password \
     -noprompt
 
-# Keycloak HTTPS 설정
+# 8. Keycloak HTTPS 설정
 USER keycloak
 ENV KC_HOSTNAME=localhost
 ENV KC_HTTPS_KEY_STORE_FILE=/opt/keycloak/conf/server.keystore
@@ -74,8 +74,9 @@ ENV KC_HTTPS_KEY_STORE_PASSWORD=password
 # 포트 open
 EXPOSE 8443
 
-# 8. Keycloak 실행 명령어 등록
+# 9. Keycloak 실행 명령어 등록
 # 기본 실행 파일
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
 # 개발 모드, HTTPS 8443 포트
 CMD ["start-dev", "--https-port=8443"]
+
