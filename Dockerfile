@@ -18,7 +18,13 @@
 
 # # Keycloak용 키 반출
 # docker cp keycloak-https:/opt/keycloak/cert ./cert
-# 명령어 수행 후 (server.keystore에 들어가서 반출하고자 하는 키 반출) 
+# 명령어 수행 후 (server.keystore에 들어가서 반출하고자 하는 키 반출)
+#
+# # TLS 연결 확인
+# # TLS 1.2v용 Client 연결 
+# openssl s_client -connect localhost:8443 -tls1_2
+# # TLS 1.3v용 Client 연결 
+# openssl s_client -connect localhost:8443 -tls1_3
 # =========================== #
 
 
@@ -65,18 +71,30 @@ RUN keytool -importkeystore \
     -deststorepass password \
     -noprompt
 
-# 8. Keycloak HTTPS 설정
+# 8. Java 옵션 설정 (TLS 1.2, TLS 1.3 설정)
+ENV JAVA_OPTS="-Dhttps.protocols=TLSv1.2,TLSv1.3 \
+               -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3 \
+               -Djdk.tls.server.protocols=TLSv1.2,TLSv1.3 \
+               -Djsse.enableSNIExtension=true \
+               -Djdk.tls.ephemeralDHKeySize=2048"
+
+
+# 9. Keycloak HTTPS 설정
 USER keycloak
 ENV KC_HOSTNAME=localhost
 ENV KC_HTTPS_KEY_STORE_FILE=/opt/keycloak/conf/server.keystore
 ENV KC_HTTPS_KEY_STORE_PASSWORD=password
 
+# 10. TLS/암호화 관련 추가 설정
+ENV KC_HTTPS_PROTOCOLS=TLSv1.2,TLSv1.3
+ENV KC_HTTPS_CIPHER_SUITES=TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
 # 포트 open
 EXPOSE 8443
 
-# 9. Keycloak 실행 명령어 등록
+# 11. Keycloak 실행 명령어 등록
 # 기본 실행 파일
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
-# 개발 모드, HTTPS 8443 포트
-CMD ["start-dev", "--https-port=8443"]
+# 개발 모드, HTTPS 8443 포트, TLS 설정 적용
+CMD ["start-dev", "--https-port=8443", "--https-protocols=TLSv1.2,TLSv1.3"]
 
