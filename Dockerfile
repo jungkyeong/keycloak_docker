@@ -35,10 +35,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 3. Keycloak tar.gz 파일 복사 및 설치
-COPY keycloak-26.3.4.tar.gz /opt/
-RUN tar -xzf /opt/keycloak-26.3.4.tar.gz -C /opt && \
-    mv /opt/keycloak-26.3.4 /opt/keycloak && \
-    rm /opt/keycloak-26.3.4.tar.gz
+ENV KC_VERSION=26.3.4
+RUN curl -L -o /opt/keycloak.tar.gz https://github.com/keycloak/keycloak/releases/download/${KC_VERSION}/keycloak-${KC_VERSION}.tar.gz && \
+    tar -xzf /opt/keycloak.tar.gz -C /opt && \
+    mv /opt/keycloak-${KC_VERSION} /opt/keycloak && \
+    rm /opt/keycloak.tar.gz
+
 
 # 4. OpenSSL 인증서 생성
 RUN mkdir -p /opt/keycloak/cert && \
