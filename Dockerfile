@@ -4,10 +4,10 @@
 # ========== 사용법  ========== # 
 ## Powershell 해당 Dockerfile 위치에서
 # # 이미지 빌드
-# docker build -t keycloak-https .
+# docker build -t keycloak-java .
 # 
 # # 실행
-# docker run -d -p 8443:8443 --name keycloak-https keycloak-https
+# docker run -d -p 8443:8443 --name keycloak-java keycloak-java
 # 
 # # ID 조회 후 중지
 # docker ps 후 
@@ -17,59 +17,65 @@
 # docker rm [CONTAINER ID]
 
 # # Keycloak용 키 반출
-# docker cp keycloak-https:/opt/keycloak/cert ./cert
+# docker cp keycloak-java:/opt/keycloak/cert ./cert
 # 명령어 수행 후 (server.keystore에 들어가서 반출하고자 하는 키 반출) 
 # =========================== #
 
+# 1. Ubuntu 22.04 베이스
+FROM ubuntu:22.04
 
-# 1. Alpine 패키지 매니저를 통해 OpenSSL 인증서 생성
-FROM alpine:latest as cert-generator
-RUN apk add --no-cache openssl
-RUN mkdir -p /certs
-RUN openssl req -x509 -newkey rsa:2048 \
-    -keyout /certs/server.key \
-    -out /certs/server.pem \
-    -days 365 -nodes \
-    -subj "/CN=localhost"
+# 2. 필수 패키지 설치 (openjdk-21, openssl .. 후, APT 캐시 삭제)
+RUN apt-get update && apt-get install -y \
+    openjdk-21-jdk \
+    curl \
+    unzip \
+    openssl \
+    vim \
+#    sudo \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2. p12 키스토어 생성
-RUN openssl pkcs12 -export \
-    -in /certs/server.pem \
-    -inkey /certs/server.key \
-    -out /certs/server.p12 \
-    -name keycloak \
-    -passout pass:password
+# 3. Keycloak tar.gz 파일 복사 및 설치
+COPY keycloak-26.3.4.tar.gz /opt/
+RUN tar -xzf /opt/keycloak-26.3.4.tar.gz -C /opt && \
+    mv /opt/keycloak-26.3.4 /opt/keycloak && \
+    rm /opt/keycloak-26.3.4.tar.gz
 
-# 3. Keycloak 기반 이미지
-FROM quay.io/keycloak/keycloak:26.3.1
+# 4. OpenSSL 인증서 생성
+RUN mkdir -p /opt/keycloak/cert && \
+    openssl req -x509 -newkey rsa:2048 \
+        -keyout /opt/keycloak/cert/server.key \
+        -out /opt/keycloak/cert/server.pem \
+        -days 365 -nodes \
+        -subj "/CN=localhost" && \
+    openssl pkcs12 -export \
+        -in /opt/keycloak/cert/server.pem \
+        -inkey /opt/keycloak/cert/server.key \
+        -out /opt/keycloak/cert/server.p12 \
+        -name keycloak \
+        -passout pass:password && \
+    keytool -importkeystore \
+        -srckeystore /opt/keycloak/cert/server.p12 \
+        -srcstoretype PKCS12 \
+        -srcstorepass password \
+        -destkeystore /opt/keycloak/conf/server.keystore \
+        -deststorepass password \
+        -noprompt
 
-# 4. 관리자 계정 정보
+# 5. Keycloak 환경 변수 setting
 ENV KEYCLOAK_ADMIN=admin
 ENV KEYCLOAK_ADMIN_PASSWORD=admin123
-
-USER root
-
-# 5. 인증서 및 .p12 키스토어 복사
-COPY --from=cert-generator /certs /opt/keycloak/cert
-
-# 6. 권한 설정
-RUN chown -R keycloak:keycloak /opt/keycloak/cert && \
-    chmod 644 /opt/keycloak/cert/*
-
-# 7. .p12 → KeyStore 변환
-RUN keytool -importkeystore \
-    -srckeystore /opt/keycloak/cert/server.p12 \
-    -srcstoretype PKCS12 \
-    -srcstorepass password \
-    -destkeystore /opt/keycloak/conf/server.keystore \
-    -deststorepass password \
-    -noprompt
-
-# 8. Keycloak HTTPS 설정
-USER keycloak
-ENV KC_HOSTNAME=localhost
+ENV KC_HOSTNAME=192.168.0.16
 ENV KC_HTTPS_KEY_STORE_FILE=/opt/keycloak/conf/server.keystore
 ENV KC_HTTPS_KEY_STORE_PASSWORD=password
+
+# 6. Provider file COPY
+# COPY ./providers/*.jar /opt/keycloak/providers/
+
+# 7. 비루트 사용자 생성 및 권한 설정
+
+#RUN useradd -ms /bin/bash keycloak && \
+#    chown -R keycloak:keycloak /opt/keycloak
+#USER keycloak
 
 # 포트 open
 EXPOSE 8443
