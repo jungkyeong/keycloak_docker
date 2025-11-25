@@ -30,7 +30,7 @@ RUN openssl req -x509 -newkey rsa:2048 \
     -keyout /certs/server.key \
     -out /certs/server.pem \
     -days 365 -nodes \
-    -subj "/CN=localhost"
+    -subj "/CN=192.168.0.16"
 
 # 2. p12 키스토어 생성
 RUN openssl pkcs12 -export \
@@ -67,7 +67,7 @@ RUN keytool -importkeystore \
 
 # 8. Keycloak HTTPS 설정
 USER keycloak
-ENV KC_HOSTNAME=localhost
+ENV KC_HOSTNAME=192.168.0.16
 ENV KC_HTTPS_KEY_STORE_FILE=/opt/keycloak/conf/server.keystore
 ENV KC_HTTPS_KEY_STORE_PASSWORD=password
 
@@ -79,4 +79,5 @@ EXPOSE 8443
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
 # 개발 모드, HTTPS 8443 포트
 CMD ["start-dev", "--https-port=8443"]
+
 
