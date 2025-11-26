@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # 빌드 변수 (인증서, 포트, 키스토어)
+        HOSTNAME: 192.168.0.16
+        HTTPS_PORT: 8743
+        KEYSTORE_PASSWORD: password
+    container_name: keycloak-test
+    ports:
+      - "8743:8743"
+    environment:
+      # 런타임 변수 (관리자 계정)
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=password
+    restart: unless-stopped
