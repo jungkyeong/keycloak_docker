@@ -26,5 +26,6 @@
 
 ### DB 접속 확인
 1. psql 접속 
-- docker exec -it keycloak-postgres psql -U keycloak -d keycloak
+- docker exec -it keycloak-postgres psql -U keycloak -d keycloak (기본 5432 포트인 경우)
+- docker exec -it keycloak-postgres psql -U keycloak -d keycloak -p 8888 (DB 컨테이너가 8888 포트라면)
 

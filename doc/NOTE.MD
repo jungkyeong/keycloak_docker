@@ -17,5 +17,9 @@
 
 2. 해당 Dockerfile 위치로부터 data/postgres 폴더에 생성됨
 
+3. health test
+- test: ["CMD", "pg_isready", "-U", "keycloak", "-d", "keycloak", "-p", "8888"]
+- healthy, 아니면 unhealthy인지 확인 cmd (DB가 연결될 준비가 되었는지 확인)
+
 ### TEST
-1. Docker Desktop 환경에서 확인
+1. Docker Desktop 및 Linux 서버 환경에서 확인
