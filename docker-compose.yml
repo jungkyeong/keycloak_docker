@@ -1,12 +1,28 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: keycloak-postgres
+    environment: # DB 생성 위치 및 DB 관리자 user, pw
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=password
+    volumes: # 볼륨 위치
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   keycloak:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        # 빌드 변수 (인증서, 포트, 키스토어)
+        # 인증서, 포트, 키스토어
         HOSTNAME: 192.168.0.16
         HTTPS_PORT: 8743
         KEYSTORE_PASSWORD: password
@@ -14,7 +30,15 @@ services:
     ports:
       - "8743:8743"
     environment:
-      # 런타임 변수 (관리자 계정)
+      # 관리자 계정
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=password
+      # DB 연결 (위 postgres 서비스와 동일해야 함)
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=password
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
