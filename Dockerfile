@@ -47,6 +47,10 @@ COPY ./providers/*.jar /opt/keycloak/providers/
 RUN chown -R keycloak:keycloak /opt/keycloak/providers && \
     chmod 644 /opt/keycloak/providers/*
 
+# 커스텀 테마 복사
+COPY ./themes /opt/keycloak/themes
+RUN chown -R keycloak:keycloak /opt/keycloak/themes
+
 # PKCS12 → Java KeyStore 변환
 RUN keytool -importkeystore \
     -srckeystore /opt/keycloak/cert/server.p12 \
